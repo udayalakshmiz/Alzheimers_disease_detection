@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Alzheimer's Detection — NeuroScan AI</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Sora:wght@300;400;600;700&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #0a0e1a; --surface: #111827; --surface2: #1a2235;
+    --surface3: #1f2d42; --border: rgba(255,255,255,0.07);
+    --border2: rgba(255,255,255,0.13); --text: #e8edf5; --muted: #6b7a99;
+    --accent: #4f8ef7; --normal: #34d399; --mild: #fbbf24; --alz: #f87171;
+    --font: 'Sora', sans-serif; --mono: 'DM Mono', monospace; --r: 12px;
+  }
+  html,body { min-height:100vh; background:var(--bg); color:var(--text); font-family:var(--font); }
+
+  /* HEADER */
+  .header {
+    padding:18px 36px; border-bottom:1px solid var(--border);
+    background:var(--surface); display:flex; align-items:center; gap:14px;
+    position:sticky; top:0; z-index:100;
+  }
+  .logo {
+    width:38px; height:38px; border-radius:10px;
+    background:linear-gradient(135deg,#4f8ef7,#38bdf8);
+    display:flex; align-items:center; justify-content:center; flex-shrink:0;
+  }
+  .logo svg { width:22px; height:22px; fill:white; }
+  .header-title  { font-size:17px; font-weight:700; letter-spacing:-0.3px; }
+  .header-sub    { font-size:11px; color:var(--muted); font-family:var(--mono); margin-top:2px; }
+  .header-badge  {
+    margin-left:auto; background:rgba(79,142,247,0.12);
+    border:1px solid rgba(79,142,247,0.3); color:var(--accent);
+    font-size:11px; font-family:var(--mono); padding:4px 12px; border-radius:20px;
+  }
+
+  /* MAIN GRID */
+  .main { display:grid; grid-template-columns:420px 1fr; min-height:calc(100vh - 65px); }
+
+  /* LEFT */
+  .left { background:var(--surface); border-right:1px solid var(--border); display:flex; flex-direction:column; }
+  .section { padding:22px 24px; border-bottom:1px solid var(--border); }
+  .s-label {
+    font-size:10px; font-family:var(--mono); color:var(--muted);
+    text-transform:uppercase; letter-spacing:1.5px; margin-bottom:14px; font-weight:500;
+  }
+
+  /* UPLOAD */
+  .upload-zone {
+    border:1.5px dashed var(--border2); border-radius:var(--r);
+    padding:30px 20px; text-align:center; cursor:pointer;
+    transition:all 0.2s; background:var(--surface2); position:relative;
+  }
+  .upload-zone:hover, .upload-zone.drag { border-color:var(--accent); background:rgba(79,142,247,0.06); }
+  .upload-zone input { position:absolute; inset:0; opacity:0; cursor:pointer; width:100%; height:100%; }
+  .u-icon { font-size:30px; margin-bottom:10px; }
+  .u-text { font-size:13px; color:var(--muted); line-height:1.6; }
+  .u-text strong { display:block; color:var(--text); font-weight:600; margin-bottom:4px; font-size:14px; }
+  .u-fmt { font-size:10px; font-family:var(--mono); color:var(--muted); margin-top:8px; }
+
+  /* PREVIEW */
+  .preview-box { display:none; margin-top:14px; flex-direction:column; gap:10px; }
+  .preview-box.show { display:flex; }
+  .img-wrap { position:relative; border-radius:var(--r); overflow:hidden; border:1px solid var(--border2); background:#000; }
+  .img-wrap img { width:100%; height:210px; object-fit:cover; display:block; }
+  .overlay {
+    position:absolute; inset:0; background:rgba(10,14,26,0.6);
+    display:flex; align-items:center; justify-content:center; flex-direction:column; gap:10px;
+  }
+  .overlay.hide { display:none; }
+  .spinner {
+    width:38px; height:38px; border:2.5px solid rgba(255,255,255,0.12);
+    border-top-color:var(--accent); border-radius:50%; animation:spin 0.75s linear infinite;
+  }
+  .overlay-txt { font-size:12px; font-family:var(--mono); color:var(--muted); }
+  @keyframes spin { to { transform:rotate(360deg); } }
+  .f-name { font-size:11px; font-family:var(--mono); color:var(--muted); }
+
+  /* GRADCAM */
+  .gradcam-box { display:none; border-radius:var(--r); overflow:hidden; border:1px solid var(--border2); position:relative; }
+  .gradcam-box.show { display:block; }
+  .gradcam-box img { width:100%; display:block; height:210px; object-fit:cover; }
+  .gcam-label {
+    position:absolute; bottom:8px; left:8px; background:rgba(0,0,0,0.72);
+    border-radius:6px; padding:3px 8px; font-size:10px; font-family:var(--mono); color:#fff;
+  }
+
+  /* RESULT */
+  .result-card {
+    display:none; margin:0 24px 20px; border-radius:var(--r);
+    padding:18px 20px; border:1.5px solid var(--border2);
+    background:var(--surface2); animation:fadeUp 0.4s ease;
+  }
+  .result-card.show { display:block; }
+  @keyframes fadeUp { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:none} }
+  .r-top { display:flex; align-items:flex-start; justify-content:space-between; margin-bottom:16px; }
+  .r-class { font-size:24px; font-weight:700; }
+  .r-badge {
+    font-size:11px; font-family:var(--mono); padding:4px 10px;
+    border-radius:20px; font-weight:500;
+  }
+  .r-desc { font-size:12px; color:var(--muted); margin-bottom:16px; line-height:1.6; }
+  .bars { display:flex; flex-direction:column; gap:10px; }
+  .bar-row { display:flex; flex-direction:column; gap:5px; }
+  .bar-top { display:flex; justify-content:space-between; }
+  .bar-name { font-size:12px; font-weight:500; }
+  .bar-pct  { font-size:11px; font-family:var(--mono); color:var(--muted); }
+  .bar-track { height:5px; background:rgba(255,255,255,0.06); border-radius:3px; overflow:hidden; }
+  .bar-fill  { height:100%; border-radius:3px; width:0; transition:width 0.9s cubic-bezier(0.4,0,0.2,1); }
+
+  /* META */
+  .meta-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .meta-item { background:var(--surface2); border-radius:8px; padding:10px 12px; border:1px solid var(--border); }
+  .m-key { font-size:10px; font-family:var(--mono); color:var(--muted); margin-bottom:4px; }
+  .m-val { font-size:13px; font-weight:600; }
+
+  .reset-btn {
+    margin:auto 24px 20px; padding:10px; border-radius:8px;
+    background:transparent; border:1px solid var(--border2); color:var(--muted);
+    font-size:12px; font-family:var(--font); cursor:pointer; transition:all 0.15s; width:calc(100% - 48px);
+  }
+  .reset-btn:hover { background:var(--surface2); color:var(--text); }
+
+  /* ERROR TOAST */
+  .toast {
+    display:none; position:fixed; top:80px; right:24px;
+    background:#7f1d1d; border:1px solid #f87171; color:#fca5a5;
+    padding:12px 18px; border-radius:10px; font-size:13px;
+    z-index:999; animation:fadeUp 0.3s ease; max-width:320px;
+  }
+  .toast.show { display:block; }
+
+  /* RIGHT PANEL */
+  .right { overflow-y:auto; background:var(--bg); padding:28px; display:flex; flex-direction:column; gap:20px; }
+  .panel-title { font-size:16px; font-weight:700; margin-bottom:2px; }
+  .panel-sub   { font-size:11px; font-family:var(--mono); color:var(--muted); }
+
+  .stats-row { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; }
+  .stat {
+    background:var(--surface); border:1px solid var(--border);
+    border-radius:var(--r); padding:14px 16px;
+  }
+  .st-label { font-size:10px; font-family:var(--mono); color:var(--muted); margin-bottom:6px; }
+  .st-val   { font-size:22px; font-weight:700; }
+  .st-sub   { font-size:10px; color:var(--muted); margin-top:4px; }
+
+  .chart-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+  .chart-card {
+    background:var(--surface); border:1px solid var(--border);
+    border-radius:var(--r); padding:18px;
+  }
+  .ct-title { font-size:12px; font-weight:600; margin-bottom:3px; }
+  .ct-sub   { font-size:10px; font-family:var(--mono); color:var(--muted); margin-bottom:12px; }
+  .legend   { display:flex; gap:14px; margin-bottom:12px; flex-wrap:wrap; }
+  .lg-item  { display:flex; align-items:center; gap:5px; font-size:11px; font-family:var(--mono); color:var(--muted); }
+  .lg-dot   { width:8px; height:8px; border-radius:2px; }
+  .chart-wrap { position:relative; width:100%; }
+
+  .cls-table { width:100%; border-collapse:collapse; font-size:12px; margin-top:4px; }
+  .cls-table th {
+    text-align:left; font-size:10px; font-family:var(--mono); color:var(--muted);
+    padding:0 6px 8px 0; text-transform:uppercase; letter-spacing:1px; font-weight:500;
+  }
+  .cls-table td { padding:7px 6px 7px 0; border-top:1px solid var(--border); }
+  .cls-dot2 { width:8px; height:8px; border-radius:50%; display:inline-block; margin-right:6px; }
+</style>
+</head>
+<body>
+
+<header class="header">
+  <div class="logo">
+    <svg viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
+  </div>
+  <div>
+    <div class="header-title">NeuroScan AI — Alzheimer's Detection</div>
+    <div class="header-sub">ResNet50 · Transfer Learning · 3-Class CNN · Real Model Inference</div>
+  </div>
+  <div class="header-badge">Test Acc 75.71%</div>
+</header>
+
+<div class="main">
+
+  <div class="left">
+
+    <div class="section">
+      <div class="s-label">Upload Brain MRI Scan</div>
+      <div class="upload-zone" id="uploadZone">
+        <input type="file" id="fileInput" accept="image/*">
+        <div class="u-icon">🧠</div>
+        <div class="u-text">
+          <strong>Drop MRI scan here</strong>
+          Click or drag to upload for CNN classification
+        </div>
+        <div class="u-fmt">JPG · PNG · BMP · TIFF</div>
+      </div>
+
+      <div class="preview-box" id="previewBox">
+        <div class="img-wrap">
+          <img id="previewImg" src="" alt="MRI preview">
+          <div class="overlay" id="loadingOverlay">
+            <div class="spinner"></div>
+            <div class="overlay-txt">Running model inference...</div>
+          </div>
+        </div>
+        <div class="gradcam-box" id="gradcamBox">
+          <img id="gradcamImg" src="" alt="Grad-CAM heatmap">
+          <div class="gcam-label">Grad-CAM — CNN Attention Map</div>
+        </div>
+        <div class="f-name" id="fName"></div>
+      </div>
+    </div>
+
+    <div class="result-card" id="resultCard">
+      <div class="r-top">
+        <div>
+          <div style="font-size:10px;font-family:var(--mono);color:var(--muted);margin-bottom:5px;">PREDICTION</div>
+          <div class="r-class" id="rClass">—</div>
+        </div>
+        <div class="r-badge" id="rBadge">—%</div>
+      </div>
+      <div class="r-desc" id="rDesc"></div>
+      <div class="bars" id="barsContainer"></div>
+    </div>
+
+    <div class="section" style="margin-top:auto;">
+      <div class="s-label">Model Info</div>
+      <div class="meta-grid">
+        <div class="meta-item"><div class="m-key">backbone</div><div class="m-val" style="font-size:12px">ResNet50</div></div>
+        <div class="meta-item"><div class="m-key">weights</div><div class="m-val" style="font-size:12px">ImageNet</div></div>
+        <div class="meta-item"><div class="m-key">input</div><div class="m-val">224×224</div></div>
+        <div class="meta-item"><div class="m-key">fine-tune</div><div class="m-val" style="font-size:12px">layer 140+</div></div>
+        <div class="meta-item"><div class="m-key">classes</div><div class="m-val">3</div></div>
+        <div class="meta-item"><div class="m-key">batch</div><div class="m-val">32</div></div>
+      </div>
+    </div>
+
+    <button class="reset-btn" id="resetBtn">↺ Reset — upload new scan</button>
+  </div>
+
+  <div class="right">
+
+    <div>
+      <div class="panel-title">Training & Evaluation Dashboard</div>
+      <div class="panel-sub">Actual results from your trained model — 20 epochs · T4 GPU · tf.data pipeline</div>
+    </div>
+
+    <div class="stats-row">
+      <div class="stat">
+        <div class="st-label">test accuracy</div>
+        <div class="st-val" style="color:#34d399">75.71%</div>
+        <div class="st-sub">638 test samples</div>
+      </div>
+      <div class="stat">
+        <div class="st-label">F1 weighted</div>
+        <div class="st-val" style="color:#34d399">0.7570</div>
+        <div class="st-sub">weighted avg</div>
+      </div>
+      <div class="stat">
+        <div class="st-label">macro avg precision</div>
+        <div class="st-val" style="color:#38bdf8">0.7711</div>
+        <div class="st-sub">across 3 classes</div>
+      </div>
+      <div class="stat">
+        <div class="st-label">Alz. recall</div>
+        <div class="st-val" style="color:#fbbf24">80.00%</div>
+        <div class="st-sub">4 / 5 detected</div>
+      </div>
+    </div>
+
+    <div class="chart-grid">
+      <div class="chart-card">
+        <div class="ct-title">Accuracy — Train vs Validation</div>
+        <div class="ct-sub">20 epochs · best weights restored from epoch 19</div>
+        <div class="legend">
+          <div class="lg-item"><div class="lg-dot" style="background:#4f8ef7"></div>Train</div>
+          <div class="lg-item"><div class="lg-dot" style="background:#34d399"></div>Validation</div>
+        </div>
+        <div class="chart-wrap" style="height:190px">
+          <canvas id="accChart"></canvas>
+        </div>
+      </div>
+      <div class="chart-card">
+        <div class="ct-title">Loss — Train vs Validation</div>
+        <div class="ct-sub">ReduceLROnPlateau fired at epochs 7, 13, 18</div>
+        <div class="legend">
+          <div class="lg-item"><div class="lg-dot" style="background:#f87171"></div>Train</div>
+          <div class="lg-item"><div class="lg-dot" style="background:#fbbf24"></div>Validation</div>
+        </div>
+        <div class="chart-wrap" style="height:190px">
+          <canvas id="lossChart"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <div class="chart-grid">
+      <div class="chart-card">
+        <div class="ct-title">Per-Class Sensitivity (Recall)</div>
+        <div class="ct-sub">Accuracy per target class</div>
+        <div class="chart-wrap" style="height:200px">
+          <canvas id="classChart"></canvas>
+        </div>
+      </div>
+      <div class="chart-card">
+        <div class="ct-title">Precision · Recall · F1 per Class</div>
+        <div class="ct-sub">From classification report</div>
+        <table class="cls-table">
+          <thead>
+            <tr><th>Class</th><th>Prec.</th><th>Recall</th><th>F1</th><th>N</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><span class="cls-dot2" style="background:#34d399"></span>Normal</td>
+              <td>0.7570</td><td>0.7618</td><td>0.7594</td><td>319</td>
+            </tr>
+            <tr>
+              <td><span class="cls-dot2" style="background:#fbbf24"></span>Mild</td>
+              <td>0.7564</td><td>0.7516</td><td>0.7540</td><td>314</td>
+            </tr>
+            <tr>
+              <td><span class="cls-dot2" style="background:#f87171"></span>Alzheimer's</td>
+              <td>0.8000</td><td>0.8000</td><td>0.8000</td><td>5</td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="chart-wrap" style="height:100px; margin-top:12px">
+          <canvas id="f1Chart"></canvas>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const EPOCHS     = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20];
+const TRAIN_ACC  = [48.48,52.00,54.19,57.87,60.68,61.92,62.59,62.73,65.90,66.84,67.71,67.88,68.33,69.50,69.78,70.94,70.49,71.79,72.75,73.07];
+const VAL_ACC    = [48.24,50.51,51.37,64.84,58.97,54.82,56.30,57.48,67.03,74.71,71.03,51.53,65.86,70.40,74.94,67.11,74.63,65.86,75.72,74.71];
+const TRAIN_LOSS = [1.26,0.97,0.86,0.77,0.70,0.66,0.67,0.63,0.57,0.54,0.52,0.55,0.52,0.51,0.50,0.49,0.48,0.45,0.45,0.45];
+const VAL_LOSS   = [0.93,1.44,0.87,0.69,0.95,1.02,1.11,1.07,0.65,0.59,0.66,1.48,0.69,0.62,0.57,0.75,0.58,0.69,0.56,0.57];
+
+const gridColor = 'rgba(255,255,255,0.05)';
+const tickStyle = { color:'#6b7a99', font:{ size:10, family:'DM Mono' } };
+const baseScale = (cb) => ({
+  x: { ticks:{ ...tickStyle, autoSkip:false, maxRotation:0 }, grid:{ color:gridColor }, border:{ color:'transparent' } },
+  y: { ticks:{ ...tickStyle, ...(cb ? { callback: cb } : {}) }, grid:{ color:gridColor }, border:{ color:'transparent' } }
+});
+const basePlugins = {
+  legend:{ display:false },
+  tooltip:{ backgroundColor:'#1a2235', borderColor:'rgba(255,255,255,0.1)', borderWidth:1, titleColor:'#e8edf5', bodyColor:'#6b7a99', padding:8 }
+};
+
+new Chart(document.getElementById('accChart'), {
+  type:'line',
+  data:{ labels:EPOCHS, datasets:[
+    { label:'Train', data:TRAIN_ACC, borderColor:'#4f8ef7', backgroundColor:'rgba(79,142,247,0.07)', fill:true, tension:0.35, pointRadius:2, borderWidth:2 },
+    { label:'Val',   data:VAL_ACC,   borderColor:'#34d399', backgroundColor:'rgba(52,211,153,0.07)', fill:true, tension:0.35, borderWidth:2, 
+      pointRadius: VAL_ACC.map((_,i)=>i===18?6:2), 
+      pointBackgroundColor: VAL_ACC.map((_,i)=>i===18?'#34d399':'transparent') }
+  ]},
+  options:{ responsive:true, maintainAspectRatio:false, plugins:basePlugins, 
+    scales:{ ...baseScale(v=>v+'%'), y:{ ...baseScale().y, min:40, max:82, ticks:{ ...tickStyle, callback:v=>v+'%' } } } }
+});
+
+new Chart(document.getElementById('lossChart'), {
+  type:'line',
+  data:{ labels:EPOCHS, datasets:[
+    { label:'Train', data:TRAIN_LOSS, borderColor:'#f87171', backgroundColor:'rgba(248,113,113,0.07)', fill:true, tension:0.35, pointRadius:2, borderWidth:2 },
+    { label:'Val',   data:VAL_LOSS,   borderColor:'#fbbf24', backgroundColor:'rgba(251,191,36,0.07)',  fill:true, tension:0.35, borderWidth:2,
+      pointRadius: VAL_LOSS.map((_,i)=>[6,12,17].includes(i)?5:2),
+      pointBackgroundColor: VAL_LOSS.map((_,i)=>[6,12,17].includes(i)?'#fbbf24':'transparent') }
+  ]},
+  options:{ responsive:true, maintainAspectRatio:false, plugins:basePlugins, scales:baseScale() }
+});
+
+new Chart(document.getElementById('classChart'), {
+  type:'bar',
+  data:{ labels:['Normal','Mild',"Alzheimer's"], datasets:[{
+    data:[76.18, 75.16, 80.00],
+    backgroundColor:['rgba(52,211,153,0.7)','rgba(251,191,36,0.7)','rgba(248,113,113,0.7)'],
+    borderColor:['#34d399','#fbbf24','#f87171'], borderWidth:1.5, borderRadius:6
+  }]},
+  options:{ responsive:true, maintainAspectRatio:false, plugins:{ ...basePlugins, legend:{display:false} },
+    scales:{ ...baseScale(v=>v+'%'), y:{ ...baseScale().y, min:0, max:100, ticks:{ ...tickStyle, callback:v=>v+'%' } } } }
+});
+
+new Chart(document.getElementById('f1Chart'), {
+  type:'bar',
+  data:{ labels:['Normal','Mild',"Alzheimer's"], datasets:[{
+    data:[0.7594, 0.7540, 0.8000],
+    backgroundColor:['rgba(52,211,153,0.5)','rgba(251,191,36,0.5)','rgba(248,113,113,0.5)'],
+    borderColor:['#34d399','#fbbf24','#f87171'], borderWidth:1.5, borderRadius:4
+  }]},
+  options:{ indexAxis: 'y', responsive:true, maintainAspectRatio:false, plugins:{ ...basePlugins, legend:{display:false} },
+    scales:{ ...baseScale(), x:{ ...baseScale().y, min:0, max:1, ticks:{ ...tickStyle, stepSize:0.2 } } } }
+});
+
+/* ── UPLOAD & PREDICT ──────────────────────────────────────── */
+const CLASS_META = {
+  'Normal':      { color:'#34d399' },
+  'Mild':        { color:'#fbbf24' },
+  "Alzheimer's": { color:'#f87171' }
+};
+
+const fileInput      = document.getElementById('fileInput');
+const uploadZone     = document.getElementById('uploadZone');
+const previewBox     = document.getElementById('previewBox');
+const previewImg     = document.getElementById('previewImg');
+const loadingOverlay = document.getElementById('loadingOverlay');
+const gradcamBox     = document.getElementById('gradcamBox');
+const gradcamImg     = document.getElementById('gradcamImg');
+const fName          = document.getElementById('fName');
+const resultCard     = document.getElementById('resultCard');
+const toast          = document.getElementById('toast');
+
+function showToast(msg) {
+  toast.textContent = msg; toast.classList.add('show');
+  setTimeout(() => toast.classList.remove('show'), 4000);
+}
+
+function renderResult(data) {
+  loadingOverlay.classList.add('hide');
+  gradcamBox.classList.add('show');
+  gradcamImg.src = data.gradcam;
+  resultCard.classList.add('show');
+
+  const col = CLASS_META[data.prediction].color;
+  document.getElementById('rClass').textContent = data.prediction;
+  document.getElementById('rClass').style.color = col;
+  document.getElementById('rBadge').textContent = data.confidence.toFixed(1) + '%';
+  document.getElementById('rBadge').style.background = col + '22';
+  document.getElementById('rBadge').style.border = '1px solid ' + col + '55';
+  document.getElementById('rBadge').style.color  = col;
+  document.getElementById('rDesc').textContent = data.description;
+
+  const bars = document.getElementById('barsContainer');
+  bars.innerHTML = '';
+  data.probabilities.forEach((p, i) => {
+    const c = Object.values(CLASS_META)[i].color;
+    bars.innerHTML += `
+      <div class="bar-row">
+        <div class="bar-top">
+          <span class="bar-name" style="color:${c}">${p.class}</span>
+          <span class="bar-pct">${p.probability.toFixed(1)}%</span>
+        </div>
+        <div class="bar-track">
+          <div class="bar-fill" id="bf${i}" style="background:${c}"></div>
+        </div>
+      </div>`;
+  });
+  setTimeout(() => {
+    data.probabilities.forEach((p, i) => {
+      const el = document.getElementById('bf' + i);
+      if (el) el.style.width = p.probability.toFixed(1) + '%';
+    });
+  }, 60);
+}
+
+async function handleFile(file) {
+  if (!file || !file.type.startsWith('image/')) return;
+
+  previewImg.src = URL.createObjectURL(file);
+  previewBox.classList.add('show');
+  loadingOverlay.classList.remove('hide');
+  gradcamBox.classList.remove('show');
+  resultCard.classList.remove('show');
+  fName.textContent = file.name + ' · ' + (file.size / 1024).toFixed(1) + ' KB';
+
+  const formData = new FormData();
+  formData.append('file', file);
+
+  try {
+    const res  = await fetch('/predict', { method:'POST', body: formData });
+    const data = await res.json();
+    if (data.error) { showToast('Error: ' + data.error); loadingOverlay.classList.add('hide'); return; }
+    renderResult(data);
+  } catch (err) {
+    showToast('Connection error — is the Flask server running?');
+    loadingOverlay.classList.add('hide');
+  }
+}
+
+fileInput.addEventListener('change', e => handleFile(e.target.files[0]));
+uploadZone.addEventListener('dragover',  e => { e.preventDefault(); uploadZone.classList.add('drag'); });
+uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('drag'));
+uploadZone.addEventListener('drop', e => { e.preventDefault(); uploadZone.classList.remove('drag'); handleFile(e.dataTransfer.files[0]); });
+document.getElementById('resetBtn').addEventListener('click', () => {
+  previewBox.classList.remove('show');
+  resultCard.classList.remove('show');
+  gradcamBox.classList.remove('show');
+  previewImg.src = '';
+  fileInput.value = '';
+  loadingOverlay.classList.remove('hide');
+});
+</script>
+</body>
+</html>

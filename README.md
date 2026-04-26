@@ -17,9 +17,8 @@
 | 🎯 Test Accuracy | **75.71%** |
 | 📊 Weighted F1-Score | **0.7570** |
 | 🔴 Alzheimer's F1 | **0.8000** |
-| 🗃️ Dataset Size | **9,880 MRI Scans** |
 | 🏋️ Training Epochs | **20** |
-| 🖥️ Platform | **Google Colab · NVIDIA T4** |
+| 🖥️ Platform | **Google Colab** |
 
 <br/>
 
@@ -58,7 +57,7 @@ This project builds a complete **deep learning pipeline** that automatically cla
 | 🟡 **Mild** | Mild Cognitive Impairment (MCI) | 4,412 |
 | 🔴 **Alzheimer's** | Moderately Demented | 88 |
 
-The system combines **10 Digital Image Processing techniques** for preprocessing and feature visualisation with a **ResNet50 transfer learning model**, and includes **Grad-CAM explainability** to confirm the model attends to clinically relevant brain regions.
+The system combines **Digital Image Processing techniques** for preprocessing and feature visualisation with a **ResNet50 transfer learning model**, and includes **Grad-CAM explainability** to confirm the model attends to clinically relevant brain regions.
 
 ---
 
@@ -75,16 +74,8 @@ The system combines **10 Digital Image Processing techniques** for preprocessing
 
 ## 🗃️ Dataset
 
-The dataset is derived from the **ADNI (Alzheimer's Disease Neuroimaging Initiative)** repository, available via [Kaggle](https://www.kaggle.com/datasets/tourist55/alzheimers-dataset-4-class-of-images).
+The dataset is derived from the **ADNI (Alzheimer's Disease Neuroimaging Initiative)** repository, available via [Kaggle]([https://www.kaggle.com/datasets/kanaadlimaye/alzheimers-classification-dataset]).
 
-### Dataset Split
-
-| Split | Normal | Mild | Alzheimer's | Total |
-|:---:|:---:|:---:|:---:|:---:|
-| **Train** | 4,444 | 4,412 | 88 | **8,944** |
-| **Validation** | 649 | 613 | 15 | **1,277** |
-| **Test** | 319 | 314 | 5 | **638** |
-| **Total** | 5,412 | 5,339 | 108 | **9,859** |
 
 ### CSV Label Encoding
 
@@ -100,9 +91,9 @@ Labels are stored as one-hot encoded columns in CSV files:
 
 ```
 Alzheimers_Detection_dataset/
-├── train/               ← 8,944 MRI images
-├── valid/               ← 1,277 MRI images
-├── test/                ← 638 MRI images
+├── train/               ← 8,960 MRI images
+├── valid/               ← 1,280 MRI images
+├── test/                ← 640 MRI images
 └── CSV_datafiles/
     ├── _train_classes.csv
     ├── _valid_classes.csv
@@ -118,14 +109,14 @@ Raw MRI Images + CSV Labels
          │
          ▼
 ┌─────────────────────────────┐
-│  10 DIP Techniques          │  ← Visualisation on 3 sample images
+│   DIP Techniques            │  ← Visualisation on 3 sample images
 │  (Preprocessing + Analysis) │
 └─────────────┬───────────────┘
               │
               ▼
 ┌─────────────────────────────┐
 │  tf.data Pipeline           │  ← Lazy batch loading (32 images at a time)
-│  + Data Augmentation        │    Prevents 7.5 GB RAM crash
+│  + Data Augmentation        │    
 └─────────────┬───────────────┘
               │
               ▼
@@ -158,7 +149,7 @@ Raw MRI Images + CSV Labels
 
 ## 🖼️ Digital Image Processing Techniques
 
-All 10 DIP techniques are demonstrated on a representative subset of **3 images (1 per class)** with before/after visualisations. The **preprocessing chain** (Techniques 1–3) is applied to all 9,880 images during training.
+All DIP techniques are demonstrated on a representative subset of **3 images (1 per class)** with before/after visualisations. The **preprocessing chain** (Techniques 1–3) is applied to all images during training.
 
 | # | Technique | OpenCV / NumPy Function | Purpose |
 |:---:|:---|:---|:---|
@@ -171,7 +162,6 @@ All 10 DIP techniques are demonstrated on a representative subset of **3 images 
 | 7 | **Fourier Transform** | `np.fft.fft2() + fftshift()` | Frequency domain analysis of tissue density changes |
 | 8 | **Otsu Thresholding** | `cv2.THRESH_BINARY + THRESH_OTSU` | Automatic brain segmentation without manual threshold |
 | 9 | **Laplacian Sharpening** | `cv2.Laplacian(CV_64F)` | Enhance cortical folds and sulcal detail |
-| 10 | **Colour Processing** | Pseudo-colour, False colour, HSV, LAB, Colour CLAHE | Tissue type visualisation, perceptual enhancement |
 
 ### Preprocessing Chain Applied to All Training Images
 
@@ -228,7 +218,6 @@ Input (224 × 224 × 3)
 | Frozen (preserved) | 8,613,760 |
 | Model size | ~92 MB |
 
----
 
 ## 🏋️ Training Strategy
 
@@ -266,8 +255,6 @@ tf.image.random_flip_up_down()
 tf.image.random_brightness(max_delta=0.1)
 tf.image.random_contrast(lower=0.9, upper=1.1)
 ```
-
----
 
 ## 📊 Results
 
@@ -307,17 +294,16 @@ Overall     ███████████████████░░░�
 | 1 | 47.95% | 50.82% | Training begins |
 | 7 | 62.78% | 70.71% | Fine-tuned layers adapting |
 | 10 | 65.87% | 71.18% | ReduceLR → `5e-5` |
-| 14 | 69.03% | **77.29%** | ✅ Best validation epoch |
+| 14 | 69.03% | **77.29%** | Best validation epoch |
 | 20 | 70.93% | 71.42% | Final epoch |
 
 ### Memory Efficiency
 
 | Approach | RAM Used | Result |
 |:---|:---:|:---:|
-| NumPy array (old) | ~7.5 GB | 💥 Session crash |
-| `tf.data` pipeline (new) | ~50 MB peak | ✅ Stable |
+| NumPy array (old) | ~7.5 GB | Session crash |
+| `tf.data` pipeline (new) | ~50 MB peak | Stable |
 
----
 
 ## 📁 Project Structure
 
@@ -339,9 +325,7 @@ alzheimers-detection/
 └── 📖 README.md
 ```
 
----
-
-## ⚙️ Setup and Installation
+## Setup and Installation
 
 ### Prerequisites
 
@@ -377,7 +361,7 @@ Pillow
 
 ### 3. Prepare the Dataset
 
-Download the dataset from [Kaggle](https://www.kaggle.com/datasets/tourist55/alzheimers-dataset-4-class-of-images) and structure it as follows:
+Download the dataset from [Kaggle](https://www.kaggle.com/datasets/kanaadlimaye/alzheimers-classification-dataset) and structure it as follows:
 
 ```
 /content/drive/MyDrive/Alzheimers_Detection_dataset/
@@ -389,8 +373,6 @@ Download the dataset from [Kaggle](https://www.kaggle.com/datasets/tourist55/alz
     ├── _valid_classes.csv
     └── _test_classes.csv
 ```
-
----
 
 ## 🚀 How to Run
 
@@ -407,7 +389,7 @@ Download the dataset from [Kaggle](https://www.kaggle.com/datasets/tourist55/alz
 jupyter notebook Alzheimers_disease_detection.ipynb
 ```
 
-> ⚠️ Requires GPU with at least 8 GB VRAM for comfortable training. On CPU, training will be significantly slower.
+> Requires GPU with at least 8 GB VRAM for comfortable training. On CPU, training will be significantly slower.
 
 ### Notebook Cell Execution Order
 
@@ -430,8 +412,6 @@ Cell 38  → Grad-CAM explainability
 Cell 40  → Save model
 Cell 42  → Final summary
 ```
-
----
 
 ## 🌐 Web Application
 
@@ -472,8 +452,6 @@ Response:
 }
 ```
 
----
-
 ## 🛠️ Technologies Used
 
 | Technology | Version | Usage |
@@ -489,8 +467,6 @@ Response:
 | **Flask** | 2.x | Web application backend |
 | **Google Colab** | — | Training environment (NVIDIA T4 GPU) |
 
----
-
 ## 🔮 Future Work
 
 - [ ] **GAN-based augmentation** — Synthetically generate Alzheimer's MRI samples to address the 1:50 class imbalance
@@ -501,19 +477,13 @@ Response:
 - [ ] **Clinical validation** — Evaluate on an independent hospital dataset before any clinical deployment
 - [ ] **Mobile deployment** — Convert model to TensorFlow Lite for on-device inference
 
----
-
 ## ⚠️ Disclaimer
 
 This project is developed for **academic and research purposes** as part of a Digital Image Processing course. The model has **not been clinically validated** and must **not** be used for medical diagnosis. Always consult a qualified healthcare professional for medical decisions.
 
----
-
 ## 📄 License
 
 This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.
-
----
 
 ## 🙏 Acknowledgements
 
@@ -523,8 +493,6 @@ This project is licensed under the MIT License — see the [LICENSE](LICENSE) fi
 - **Selvaraju et al. (2017)** — Grad-CAM: Visual Explanations from Deep Networks
 - **TensorFlow Team** — tf.data pipeline documentation
 - **Google Colab** — Free GPU compute environment
-
----
 
 <div align="center">
 
